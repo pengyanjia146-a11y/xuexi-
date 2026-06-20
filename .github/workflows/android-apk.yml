@@ -1,14 +1,19 @@
-
 name: Build Android APK v8 Fresh Clean
 
-on:
+"on":
   workflow_dispatch:
   push:
-    branches: [ main, master ]
+    branches:
+      - main
+
+permissions:
+  contents: read
 
 jobs:
   build:
+    name: Build APK
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -22,27 +27,28 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Android SDK packages
-        run: |
-          yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
-
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.10.2'
+          gradle-version: '8.9'
 
-      - name: Print project tree
+      - name: Show project files
         run: |
+          echo "Current directory:"
           pwd
-          find . -maxdepth 4 -type f | sort
+          echo "Root files:"
+          ls -la
+          echo "Workflow files:"
+          find .github -maxdepth 3 -type f -print || true
+          echo "Gradle files:"
+          find . -maxdepth 3 -name "*.gradle" -o -name "settings.gradle" -o -name "gradle.properties"
 
       - name: Build debug APK
-        run: gradle clean :app:assembleDebug --stacktrace --warning-mode all
+        run: gradle :app:assembleDebug --stacktrace
 
-      - name: Find APK files
+      - name: List APK outputs
         run: |
-          echo "Generated APK files:"
+          echo "APK files generated:"
           find app/build/outputs/apk -type f -name "*.apk" -print
 
       - name: Upload APK artifact
