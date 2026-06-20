@@ -1,4 +1,4 @@
-name: Build Android APK v8 Fresh Clean
+name: Build Android APK v8 Auto Find Gradle Root
 
 "on":
   workflow_dispatch:
@@ -32,28 +32,45 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Show project files
+      - name: Show root files
         run: |
-          echo "Current directory:"
+          echo "当前目录："
           pwd
-          echo "Root files:"
+          echo "仓库根目录文件："
           ls -la
-          echo "Workflow files:"
-          find .github -maxdepth 3 -type f -print || true
-          echo "Gradle files:"
-          find . -maxdepth 3 -name "*.gradle" -o -name "settings.gradle" -o -name "gradle.properties"
+          echo "查找 settings.gradle："
+          find . -maxdepth 5 -name "settings.gradle" -o -name "settings.gradle.kts"
+
+      - name: Find Gradle root
+        id: gradle_root
+        run: |
+          ROOT_FILE=$(find . -maxdepth 5 \( -name "settings.gradle" -o -name "settings.gradle.kts" \) | head -n 1)
+
+          if [ -z "$ROOT_FILE" ]; then
+            echo "没有找到 settings.gradle 或 settings.gradle.kts"
+            echo "说明源码没有上传完整，或者上传到了错误位置。"
+            echo "当前仓库文件如下："
+            find . -maxdepth 4 -type f | sort
+            exit 1
+          fi
+
+          ROOT_DIR=$(dirname "$ROOT_FILE")
+          echo "找到 Gradle 根目录：$ROOT_DIR"
+          echo "root=$ROOT_DIR" >> "$GITHUB_OUTPUT"
 
       - name: Build debug APK
+        working-directory: ${{ steps.gradle_root.outputs.root }}
         run: gradle :app:assembleDebug --stacktrace
 
       - name: List APK outputs
         run: |
-          echo "APK files generated:"
-          find app/build/outputs/apk -type f -name "*.apk" -print
+          echo "APK 输出文件："
+          find . -type f -name "*.apk" -print
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: student-reflect-v8-fresh-apk
-          path: app/build/outputs/apk/**/*.apk
+          path: |
+            **/app/build/outputs/apk/**/*.apk
           if-no-files-found: error
